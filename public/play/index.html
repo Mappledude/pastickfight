@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Play — Pigeon Army</title>
+  <style>
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; padding:24px; background:#0f1224; color:#e8ecff}
+    a{color:#a6b1ff}
+    .wrap{max-width:900px; margin:0 auto}
+    .nav{margin-bottom:16px}
+    .nav a{margin-right:12px}
+    .card{background:#121637; border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:18px}
+    .mono{font-family:ui-monospace, Menlo, monospace; font-size:12px; opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <a href="/">← Back to Lobby</a> • <a href="/admin/">Admin</a>
+    </div>
+    <h1>Play (test)</h1>
+    <div class="card">
+      <p>Static test page. We’ll replace this with the Phaser build.</p>
+      <p class="mono" id="status">[Firebase] initializing…</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyAjOFxyff5GFyEwHgUBQqJ9Jxl0cjcpNaY",
+      authDomain: "pastickfight.firebaseapp.com",
+      projectId: "pastickfight",
+      storageBucket: "pastickfight.firebasestorage.app",
+      messagingSenderId: "511257741114",
+      appId: "1:511257741114:web:7595bd00ac209d0a44f203"
+    };
+    const app = initializeApp(firebaseConfig);
+    console.log("[Firebase] initialized:", app.name);
+    document.getElementById("status").textContent = "[Firebase] initialized ✓ " + app.name;
+  </script>
+</body>
+</html>
