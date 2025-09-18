@@ -1,0 +1,27 @@
+name: Firebase Hosting (no-checks)
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: read
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PASTICKFIGHT }}
+          projectId: pastickfight
+          # live on push to main; preview channels on PRs
+          channelId: ${{ github.event_name == 'push' && 'live' || '' }}
