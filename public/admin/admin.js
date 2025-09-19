@@ -15,6 +15,7 @@ import {
 const CODE_REGEX = /^[A-Z0-9]{3,16}$/;
 const LOG_KEY = "admin.debugLog";
 const MAX_LOG_LINES = 500;
+const EXPECTED_PROJECT_ID = "pastickfight-472521";
 
 const envEl = document.getElementById("env");
 const debugLogEl = document.getElementById("debugLog");
@@ -48,6 +49,31 @@ let unsubscribePlayers = null;
 let unsubscribeArenas = null;
 let logLines = [];
 
+function safeStringify(value) {
+  if (!value || Object.keys(value).length === 0) {
+    return "";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      __error: "Failed to serialize details",
+      message: error.message,
+    });
+  }
+}
+
+function describeError(error) {
+  if (!error) return "Unknown error";
+  const parts = [];
+  if (error.code) parts.push(error.code);
+  if (error.message) parts.push(error.message);
+  if (parts.length === 0) {
+    return String(error);
+  }
+  return parts.join(" · ");
+}
+
 function loadLogFromSession() {
   try {
     const stored = sessionStorage.getItem(LOG_KEY);
@@ -76,26 +102,26 @@ function persistLog() {
 }
 
 function renderLog() {
+  if (!debugLogEl) return;
   debugLogEl.value = logLines.join("\n");
   debugLogEl.scrollTop = debugLogEl.scrollHeight;
 }
 
-function logEvent(event, details) {
+function logEvent(event, details = {}) {
   const timestamp = new Date().toISOString();
-  const serialized =
-    details && Object.keys(details).length > 0
-      ? `${timestamp} ${event} ${JSON.stringify(details)}`
-      : `${timestamp} ${event}`;
-  logLines.push(serialized);
+  const serializedDetails = safeStringify(details);
+  const line = serializedDetails ? `${timestamp} ${event} ${serializedDetails}` : `${timestamp} ${event}`;
+  logLines.push(line);
   if (logLines.length > MAX_LOG_LINES) {
     logLines = logLines.slice(-MAX_LOG_LINES);
   }
   persistLog();
   renderLog();
-  console.log(serialized);
+  console.log(line);
 }
 
 function setStatus(targetEl, message, type = "info") {
+  if (!targetEl) return;
   targetEl.textContent = message;
   targetEl.dataset.status = type;
   if (!message) {
@@ -152,6 +178,9 @@ async function fetchFirebaseConfig() {
 
   const config = await response.json();
   logEvent("config.fetch.ok", { projectId: config.projectId });
+  if (config.projectId && config.projectId !== EXPECTED_PROJECT_ID) {
+    logEvent("project.mismatch", { expected: EXPECTED_PROJECT_ID, actual: config.projectId });
+  }
   return config;
 }
 
@@ -178,8 +207,9 @@ async function initialiseFirebase({ forceFetchConfig = false } = {}) {
     return firestoreDb;
   } catch (error) {
     envEl.textContent = "Failed to load Firebase";
-    setStatus(playerStatusEl, "Could not initialise Firebase.", "error");
-    setStatus(arenaStatusEl, "Could not initialise Firebase.", "error");
+    const errorDescription = describeError(error);
+    setStatus(playerStatusEl, `Could not initialise Firebase: ${errorDescription}`, "error");
+    setStatus(arenaStatusEl, `Could not initialise Firebase: ${errorDescription}`, "error");
     logEvent("app.init.err", { message: error.message, code: error.code });
     throw error;
   }
@@ -237,7 +267,7 @@ function subscribeToPlayers(db) {
       logEvent("players.snapshot.update", { size: snapshot.size });
     },
     (error) => {
-      setStatus(playerStatusEl, "Failed to load players.", "error");
+      setStatus(playerStatusEl, `Failed to load players: ${describeError(error)}`, "error");
       logEvent("players.snapshot.err", { message: error.message, code: error.code });
     }
   );
@@ -269,7 +299,7 @@ function subscribeToArenas(db) {
       logEvent("arenas.snapshot.update", { size: snapshot.size });
     },
     (error) => {
-      setStatus(arenaStatusEl, "Failed to load arenas.", "error");
+      setStatus(arenaStatusEl, `Failed to load arenas: ${describeError(error)}`, "error");
       logEvent("arenas.snapshot.err", { message: error.message, code: error.code });
     }
   );
@@ -286,7 +316,7 @@ async function handlePlayerDelete(code) {
     setStatus(playerStatusEl, `Player ${code} deleted.`, "success");
     logEvent("players.delete.ok", { code });
   } catch (error) {
-    setStatus(playerStatusEl, "Failed to delete player.", "error");
+    setStatus(playerStatusEl, `Failed to delete player: ${describeError(error)}`, "error");
     logEvent("players.delete.err", { code, errCode: error.code, errMsg: error.message });
   }
 }
@@ -302,7 +332,7 @@ async function handleArenaDelete(code) {
     setStatus(arenaStatusEl, `Arena ${code} deleted.`, "success");
     logEvent("arenas.delete.ok", { code });
   } catch (error) {
-    setStatus(arenaStatusEl, "Failed to delete arena.", "error");
+    setStatus(arenaStatusEl, `Failed to delete arena: ${describeError(error)}`, "error");
     logEvent("arenas.delete.err", { code, errCode: error.code, errMsg: error.message });
   }
 }
@@ -355,7 +385,7 @@ function registerPlayerForm(db) {
       playerForm.reset();
       playerNameInput.focus();
     } catch (error) {
-      setStatus(playerStatusEl, "Failed to add player.", "error");
+      setStatus(playerStatusEl, `Failed to add player: ${describeError(error)}`, "error");
       logEvent("players.add.err", { code, errCode: error.code, errMsg: error.message });
     } finally {
       playerAddBtn.disabled = false;
@@ -410,7 +440,7 @@ function registerArenaForm(db) {
       arenaForm.reset();
       arenaNameInput.focus();
     } catch (error) {
-      setStatus(arenaStatusEl, "Failed to add arena.", "error");
+      setStatus(arenaStatusEl, `Failed to add arena: ${describeError(error)}`, "error");
       logEvent("arenas.add.err", { code, errCode: error.code, errMsg: error.message });
     } finally {
       arenaAddBtn.disabled = false;
@@ -503,6 +533,36 @@ async function main() {
   renderLog();
   logEvent("admin.page.load", {});
 
+  const requiredElements = [
+    ["#playerForm", playerForm],
+    ["#playerName", playerNameInput],
+    ["#playerCode", playerCodeInput],
+    ["#playerAddBtn", playerAddBtn],
+    ["#playerStatus", playerStatusEl],
+    ["#playerCount", playerCountEl],
+    ["#playersTbody", playersTbody],
+    ["#arenaForm", arenaForm],
+    ["#arenaName", arenaNameInput],
+    ["#arenaCode", arenaCodeInput],
+    ["#arenaAddBtn", arenaAddBtn],
+    ["#arenaStatus", arenaStatusEl],
+    ["#arenaCount", arenaCountEl],
+    ["#arenasTbody", arenasTbody],
+    ["#debugLog", debugLogEl],
+    ["#copyLog", copyLogBtn],
+    ["#clearLog", clearLogBtn],
+    ["#healthInit", healthInitBtn],
+    ["#healthPing", healthPingBtn],
+    ["#healthRead", healthReadBtn],
+    ["#healthWrite", healthWriteBtn],
+    ["#env", envEl],
+  ];
+  const missing = requiredElements.filter(([, el]) => !el).map(([selector]) => selector);
+  if (missing.length > 0) {
+    logEvent("dom.missing", { selectors: missing });
+    throw new Error(`Missing required elements: ${missing.join(", ")}`);
+  }
+
   try {
     const db = await initialiseFirebase();
     registerPlayerForm(db);
@@ -510,12 +570,30 @@ async function main() {
     subscribeToPlayers(db);
     subscribeToArenas(db);
   } catch (error) {
-    logEvent("admin.init.failed", { message: error.message });
+    logEvent("admin.init.failed", { message: error.message, code: error.code });
   }
 
   registerDiagnostics();
 }
 
 main().catch((error) => {
-  logEvent("admin.fatal", { message: error.message });
+  logEvent("admin.fatal", { message: error.message, code: error.code });
+});
+
+window.addEventListener("error", (event) => {
+  logEvent("window.onerror", {
+    message: event.message,
+    source: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    stack: event.error?.stack,
+  });
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  logEvent("window.unhandledrejection", {
+    message: reason?.message || String(reason),
+    stack: reason?.stack,
+  });
 });
