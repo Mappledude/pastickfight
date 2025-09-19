@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "pastickfight",
+    "site": "pastickfight-472521",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "cleanUrls": true
