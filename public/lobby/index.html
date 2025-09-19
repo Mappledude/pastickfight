@@ -1,2 +1,114 @@
 <!doctype html>
-<h1>Lobby Page</h1>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lobby</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 2vw + 1rem, 2.4rem);
+      }
+
+      .panel {
+        padding: 1.5rem;
+        border-radius: 1rem;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        max-width: 380px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      input[type="text"] {
+        padding: 0.6rem 0.8rem;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        font-size: 1rem;
+        text-transform: uppercase;
+      }
+
+      input[type="text"]:focus {
+        outline: 2px solid #4a90e2;
+        outline-offset: 1px;
+      }
+
+      button {
+        padding: 0.6rem 1.2rem;
+        border-radius: 999px;
+        border: none;
+        background: #4a90e2;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button[disabled] {
+        opacity: 0.6;
+        cursor: progress;
+      }
+
+      #gateStatus {
+        min-height: 1.2rem;
+        font-size: 0.9rem;
+      }
+
+      #welcomeStrip {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      #lobbyContent {
+        padding: 1rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Lobby Page</h1>
+
+    <div id="gatePanel" class="panel" role="form" aria-labelledby="gateHeading">
+      <h2 id="gateHeading" style="margin:0;font-size:1.3rem;">Enter Code</h2>
+      <label for="gateCode">Player Code</label>
+      <input
+        id="gateCode"
+        type="text"
+        autocomplete="off"
+        placeholder="Enter your player code"
+        minlength="3"
+        maxlength="16"
+        pattern="[A-Za-z0-9]{3,16}"
+      />
+      <button id="gateBtn" type="button">Enter Lobby</button>
+      <div id="gateStatus" role="status" aria-live="polite"></div>
+    </div>
+
+    <div id="welcomeStrip" class="hidden">
+      <p style="margin:0;">Welcome, <span id="playerName"></span> (<span id="playerCode"></span>)</p>
+      <button id="changePlayer" type="button">Change Player</button>
+    </div>
+
+    <div id="lobbyContent" class="hidden">
+      <p>The lobby content is available once a valid player code is entered.</p>
+    </div>
+
+    <script type="module" src="./lobby.js"></script>
+  </body>
+</html>

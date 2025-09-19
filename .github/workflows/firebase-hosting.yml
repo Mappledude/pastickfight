@@ -95,6 +95,6 @@ jobs:
 
           check "${base}/" "Main Page"
           check "${base}/lobby" "Lobby Page"
-          check "${base}/admin" "Admin Page"
+          check "${base}/admin" "Admin — Players"
 
           echo "✅ Verified all pages."
