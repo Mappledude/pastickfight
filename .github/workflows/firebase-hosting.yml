@@ -12,54 +12,39 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Show repo state
+      # Preflight: print safe fields from the secret to ensure it belongs to this project
+      - name: Secret preflight (safe fields)
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PASTICKFIGHT }}
         run: |
-          echo "Top-level files:"
-          ls -la
-          echo
-          echo "firebase.json (if present):"
-          test -f firebase.json && cat firebase.json || echo "firebase.json not found!"
+          node -e '(() => {
+            if (!process.env.SA_JSON) { console.error("::error::Missing secret FIREBASE_SERVICE_ACCOUNT_PASTICKFIGHT"); process.exit(1); }
+            let j; try { j = JSON.parse(process.env.SA_JSON); } catch { console.error("::error::Secret is not valid JSON"); process.exit(1); }
+            console.log(`project_id=${j.project_id}`); 
+            console.log(`client_email_domain=${(j.client_email||"").split("@")[1]||""});
+            if (j.project_id !== "pastickfight-472521") { console.error("::error::Secret project_id must be pastickfight-472521"); process.exit(1); }
+          })()'
 
-      # LIVE deploy on push to main (no repoToken => no Checks API calls)
       - name: Deploy to Firebase Hosting (live)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PASTICKFIGHT }}
-          projectId: pastickfight
+          projectId: pastickfight-472521
           channelId: live
 
-      # Give Hosting a moment to serve the new version globally
-      - name: Wait for propagation
-        run: sleep 10
-
-      # Verify the three routes return the expected titles
       - name: Verify live pages
-        shell: bash
         run: |
           set -euo pipefail
-          declare -A pages=(
-            [""]="Main Page"
-            ["lobby"]="Lobby Page"
-            ["admin"]="Admin Page"
-          )
-          for path in "${!pages[@]}"; do
-            url="https://pastickfight.web.app/${path}"
-            expected="${pages[$path]}"
-            echo "Checking $url for title: '$expected'"
-            html="$(curl -fsSL --retry 4 --retry-connrefused --max-time 20 "$url")" || {
-              echo "::error::Failed to fetch $url"
-              exit 1
-            }
-            echo "$html" | grep -q "$expected" || {
-              echo "::error::Expected '$expected' not found in $url"
-              echo "First 200 chars of response:"
-              echo "$html" | head -c 200; echo
-              exit 1
-            }
+          base="https://pastickfight-472521.web.app"
+          declare -A pages=( [""]='Main Page' ["lobby"]='Lobby Page' ["admin"]='Admin Page' )
+          for p in "${!pages[@]}"; do
+            url="${base}/${p}"
+            exp="${pages[$p]}"
+            echo "Checking $url contains: $exp"
+            html="$(curl -fsSL --retry 4 --retry-connrefused --max-time 20 "$url")"
+            echo "$html" | grep -q "$exp" || { echo "::error::Expected '$exp' not found at $url"; exit 1; }
           done
-          echo "✅ All pages verified."
+          echo "✅ Verified all pages."
