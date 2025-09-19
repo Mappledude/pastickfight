@@ -1,4 +1,4 @@
-name: Firebase Hosting (live)
+name: Firebase Hosting (live + verify)
 
 on:
   push:
@@ -12,14 +12,54 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Deploy straight to the live channel on push to main.
-      # No repoToken => no GitHub Checks/PR comments (avoids 403).
+      - name: Show repo state
+        run: |
+          echo "Top-level files:"
+          ls -la
+          echo
+          echo "firebase.json (if present):"
+          test -f firebase.json && cat firebase.json || echo "firebase.json not found!"
+
+      # LIVE deploy on push to main (no repoToken => no Checks API calls)
       - name: Deploy to Firebase Hosting (live)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PASTICKFIGHT }}
           projectId: pastickfight
           channelId: live
+
+      # Give Hosting a moment to serve the new version globally
+      - name: Wait for propagation
+        run: sleep 10
+
+      # Verify the three routes return the expected titles
+      - name: Verify live pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A pages=(
+            [""]="Main Page"
+            ["lobby"]="Lobby Page"
+            ["admin"]="Admin Page"
+          )
+          for path in "${!pages[@]}"; do
+            url="https://pastickfight.web.app/${path}"
+            expected="${pages[$path]}"
+            echo "Checking $url for title: '$expected'"
+            html="$(curl -fsSL --retry 4 --retry-connrefused --max-time 20 "$url")" || {
+              echo "::error::Failed to fetch $url"
+              exit 1
+            }
+            echo "$html" | grep -q "$expected" || {
+              echo "::error::Expected '$expected' not found in $url"
+              echo "First 200 chars of response:"
+              echo "$html" | head -c 200; echo
+              exit 1
+            }
+          done
+          echo "✅ All pages verified."
