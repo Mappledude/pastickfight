@@ -76,12 +76,25 @@ jobs:
         run: |
           set -euo pipefail
           base="https://pastickfight-472521.web.app"
-          declare -A pages=( [""]='Main Page' ["lobby"]='Lobby Page' ["admin"]='Admin Page' )
-          for p in "${!pages[@]}"; do
-            url="${base}/${p}"
-            exp="${pages[$p]}"
-            echo "Checking $url for: $exp"
-            html="$(curl -fsSL --retry 4 --retry-connrefused --max-time 20 "$url")"
-            echo "$html" | grep -q "$exp" || { echo "::error::Expected '$exp' not found at $url"; exit 1; }
-          done
+
+          check() {
+            url="$1"
+            expected="$2"
+            echo "Checking $url for: $expected"
+            html="$(curl -fsSL --retry 4 --retry-connrefused --max-time 20 "$url")" || {
+              echo "::error::Failed to fetch $url"
+              exit 1
+            }
+            grep -q "$expected" <<<"$html" || {
+              echo "::error::Expected '$expected' not found at $url"
+              echo "First 200 chars of response:"
+              echo "$html" | head -c 200; echo
+              exit 1
+            }
+          }
+
+          check "${base}/" "Main Page"
+          check "${base}/lobby" "Lobby Page"
+          check "${base}/admin" "Admin Page"
+
           echo "✅ Verified all pages."
